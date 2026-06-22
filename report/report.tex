@@ -1,0 +1,327 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Encodage / langue ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% --- Mise en page ---
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black]{hyperref}
+
+\setlist{nosep,leftmargin=1.4em}
+\renewcommand{\arraystretch}{1.15}
+
+% En-tete / pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Recommender Gaming}
+\rhead{\small M.\,Y.\,Cheikh Med Vall — 25\,239}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+% Boite « capture a inserer »
+\newcommand{\captureplaceholder}[1]{%
+  \begin{center}
+  \fbox{\parbox[c][3.2cm][c]{0.82\linewidth}{\centering\itshape\color{gray} Capture à insérer — #1}}
+  \end{center}}
+
+\begin{document}
+
+% ======================= TITRE =======================
+\begin{center}
+  {\LARGE\bfseries Système de recommandation de jeux vidéo}\\[2pt]
+  {\large Hybride pondéré contenu + collaboratif, avec front-end LLM et voix locale}\\[10pt]
+  {\normalsize Projet — Systèmes de recommandation \quad\textbullet\quad SupNum}\\[2pt]
+  {\normalsize \textbf{Mouhamedou Yahya Cheikh Med Vall} — Matricule 25\,239}\\[2pt]
+  {\normalsize Sujet imposé : \emph{Recommender gaming} \quad\textbullet\quad Juin 2026}
+\end{center}
+
+\vspace{0.4em}
+\hrule
+\vspace{1em}
+
+% ======================= 1. PROBLEME =======================
+\section{Problème}
+
+L'objectif est de recommander des jeux vidéo à partir d'une requête en langage
+naturel, tapée ou dictée, et de restituer les résultats à l'écran et à voix
+haute. Le c\oe ur du système est un \textbf{hybride pondéré} au sens de Burke :
+il combine deux façons indépendantes de mesurer la similarité entre deux jeux —
+par leurs \emph{métadonnées} (contenu) et par \emph{qui les joue} (collaboratif)
+— puis recommande les plus proches voisins d'un jeu d'amorçage (\emph{seed}).
+
+Le projet est volontairement \emph{académique et pédagogique} : la clarté et la
+correction priment sur l'échelle ou le vernis industriel. Chaque composant doit
+rester assez simple pour être expliqué en soutenance.
+
+Conformément à l'énoncé, le sujet « Recommender gaming » s'appuie sur un jeu de
+données de recommandation validé par l'enseignante. L'application livrée est
+développée en \textbf{React} (et non Streamlit), modification validée au
+préalable avec l'enseignante ; le reste des livrables (notebook de
+prétraitement, README, évaluation) est respecté.
+
+% ======================= 2. DATASET =======================
+\section{Jeu de données}
+
+Le jeu de données est « Game Recommendations on Steam » (Kaggle). Il est retenu
+parce qu'il porte \textbf{les deux signaux} dont l'hybride a besoin : des
+métadonnées de jeux pour le bras contenu, et des interactions utilisateur–jeu
+pour le bras collaboratif. Quatre fichiers bruts :
+
+\begin{itemize}
+  \item \texttt{games.csv} — 50\,872 jeux $\times$ 13 colonnes (titre, prix,
+        ratio d'avis positifs, date, plateformes).
+  \item \texttt{games\_metadata.json} — 50\,872 lignes (\texttt{app\_id},
+        \texttt{description}, \texttt{tags}) ; 49\,628 ont $\geq 1$ tag,
+        40\,499 ont une description non vide. \emph{Carburant du bras contenu.}
+  \item \texttt{recommendations.csv} — $\approx$ 41 millions de lignes d'avis
+        (présence d'une review = interaction). \emph{Carburant du bras
+        collaboratif.}
+  \item \texttt{users.csv} — table des utilisateurs (optionnelle dans le design).
+\end{itemize}
+
+\paragraph{Échantillonnage (choix justifié).} L'ensemble complet des
+interactions est trop lourd pour un calcul item--item sur portable. On retient
+donc le \textbf{catalogue des 6\,000 jeux les plus interagis} (et non un seuil
+arbitraire de tags : ce seuil avait initialement évincé des titres phares comme
+Witcher~3, GTA~V ou CS:GO, ce qui a été corrigé). On échantillonne ensuite
+\textbf{150\,000 utilisateurs} (graine \texttt{42}) ayant au moins 5
+interactions dans le catalogue. La matrice d'interactions finale est de taille
+$150\,000 \times 6\,000$, avec une \textbf{sparsité $\approx 99{,}81\,\%$}
+(1\,680\,531 valeurs non nulles).
+
+% ======================= 3. FEATURES =======================
+\section{Caractéristiques (features)}
+
+\paragraph{Bras contenu.} Chaque jeu est représenté par une « soupe » de texte :
+ses tags (espaces internes remplacés par des \texttt{\_}, bloc répété 3 fois pour
+dominer la prose) concaténés à sa description nettoyée. Une liste d'arrêt
+(\emph{stoplist}) retire $\approx$ 35 tokens de « plomberie » plateforme
+(\texttt{single\_player}, \texttt{steam\_achievements}, \dots) qui décrivent
+l'infrastructure plutôt que le contenu. Cette soupe est vectorisée en
+\textbf{TF-IDF} : matrice $6\,000 \times 8\,681$ (8\,681 termes de vocabulaire),
+lignes normalisées L2 — le produit scalaire donne donc directement un cosinus
+dans $[0,1]$.
+
+\paragraph{Bras collaboratif.} Chaque jeu est un vecteur sur l'espace des
+utilisateurs (signal \emph{binaire} : présence d'une review). La similarité est
+un \textbf{cosinus item--item pondéré par IDF}, la pondération neutralisant
+l'effondrement vers les jeux les plus populaires.
+
+\paragraph{Filtres.} Les contraintes extraites de la requête (\texttt{max\_price},
+\texttt{tags}, \texttt{genres}) ne servent pas à la similarité : elles
+\emph{contraignent} la liste de résultats après le score, jamais avant.
+
+% ======================= 4. METHODE =======================
+\section{Méthode}
+
+\subsection{Hybride pondéré}
+
+Le score de similarité entre deux jeux $a$ et $b$ est une combinaison convexe
+des deux bras, réglée par un unique poids $\alpha$ :
+\[
+  \mathrm{score}(a,b) \;=\; \alpha \cdot \mathrm{sim}_{\text{contenu}}(a,b)
+  \;+\; (1-\alpha)\cdot \mathrm{sim}_{\text{collab}}(a,b).
+\]
+Les deux bras étant sur des échelles de magnitude différentes, chaque vecteur de
+scores est \textbf{re-normalisé par son maximum} avant le mélange — sans cette
+étape, le mélange « bascule » d'un bras à l'autre au lieu d'interpoler. Le poids
+par défaut retenu est $\alpha = \mathbf{0{,}25}$ (provisoire ; justification en
+§\,\ref{sec:eval}).
+
+\subsection{Routage et démarrage à froid (cold-start)}
+
+Tout jeu n'a pas les deux signaux. Le système \emph{route} donc chaque amorce :
+\begin{itemize}
+  \item vecteur contenu nul $\rightarrow$ \texttt{cf\_only} (5 jeux : des MMO F2P
+        sans métadonnées exploitables) ;
+  \item signal collaboratif faible, $< 50$ interactions $\rightarrow$
+        \texttt{content\_only} (2\,068 jeux, $\approx 34\,\%$ du catalogue) ;
+  \item les deux présents $\rightarrow$ \texttt{blend} (mélange pondéré) ;
+  \item aucun $\rightarrow$ repli \texttt{popularity}.
+\end{itemize}
+
+\subsection{Compréhension de la requête (LLM)}
+
+Un modèle local \texttt{llama3.1:8b} (via Ollama) traduit la requête libre en une
+structure \texttt{\{ seed, filters \}}. Il est utilisé \textbf{uniquement pour
+analyser} la requête (et, le cas échéant, proposer un jeu d'amorce
+représentatif) ; il \emph{n'écrit jamais} les recommandations — celles-ci
+viennent toujours de l'hybride. Le titre proposé est résolu vers le catalogue
+par un appariement \texttt{max(ratio\_caractères, recouvrement\_tokens)} avec un
+seuil d'admission de \textbf{0{,}80} : en dessous, le système répond honnêtement
+« je n'ai pas reconnu de jeu » plutôt que de s'accrocher à un mauvais voisin.
+
+\subsection{Amorçage par ambiance (vibe-seeding)}
+
+Quand la requête décrit une \emph{ambiance} sans nommer de jeu (« quelque chose
+de relaxant et atmosphérique »), le système dérive néanmoins une amorce : le LLM
+propose le jeu le plus représentatif de l'ambiance, ce titre est \emph{ancré}
+par le résolveur (anti-hallucination), et à défaut un repli TF-IDF transforme le
+texte dans l'espace contenu pour en chercher le plus proche voisin. Un seuil de
+confiance garantit le même principe : amorcer avec assurance ou décliner avec
+assurance.
+
+\subsection{Interface et voix}
+
+Le front-end React capture la requête (texte ou micro) et affiche les résultats ;
+il \textbf{ne calcule rien} (aucun tri, score ou filtre côté client). La voix est
+servie \emph{localement} par le back-end : transcription par \texttt{faster-whisper}
+(\texttt{POST /stt}) et synthèse par \texttt{Piper} (\texttt{POST /tts}). Ce choix
+local supprime la dépendance au cloud, corrige la mauvaise qualité de la synthèse
+navigateur et fonctionne au-delà de Chrome.
+
+\subsection{Flux d'une requête}
+
+\begin{enumerate}
+  \item \textbf{Requête} — tapée, ou dictée puis transcrite par \texttt{/stt}.
+  \item \textbf{Analyse LLM} — la requête devient \texttt{\{ seed, filters \}} ;
+        si \texttt{seed} est nul, l'amorçage par ambiance prend le relais.
+  \item \textbf{Score hybride} — cosinus contenu + cosinus CF, mélangés par $\alpha$.
+  \item \textbf{Filtrage + tri} — application des filtres, Top-$N$ voisins de l'amorce.
+  \item \textbf{Sortie} — affichage React + lecture vocale via \texttt{/tts}.
+\end{enumerate}
+
+% ======================= 5. CAPTURES =======================
+\section{Captures}
+
+\captureplaceholder{page d'accueil : barre de requête (texte + micro) et résultats}
+\captureplaceholder{requête vocale « a hard roguelike like Hades » et voisins recommandés}
+\captureplaceholder{réponse \emph{no\_seed} guidée + tier de confirmation « did you mean\dots ? »}
+
+% Pour insérer une vraie capture, remplacer la commande \captureplaceholder par :
+% \begin{figure}[h]\centering\includegraphics[width=0.82\linewidth]{figs/accueil.png}
+% \caption{...}\end{figure}
+
+% ======================= 6. EVALUATION =======================
+\section{Évaluation}\label{sec:eval}
+
+\paragraph{Protocole.} \emph{Leave-one-out} sur les interactions : pour 1\,000
+utilisateurs échantillonnés (graine \texttt{42}), on retire une interaction et on
+mesure si elle est retrouvée dans le Top-$k$ des voisins. Le score d'un
+utilisateur est calculé sur \textbf{l'ensemble de son profil} (et non sur
+quelques amorces) : on a vérifié que ce protocole « profil complet » relève le
+taux de réussite d'$\approx 35\,\%$ en relatif par rapport à un raccourci à 3
+amorces (0{,}119 $\rightarrow$ 0{,}161 à $\alpha=0$), donc on l'adopte comme
+protocole honnête. On balaie $\alpha$ de 0 (collaboratif pur) à 1 (contenu pur).
+
+\paragraph{Métrique.} Avec une seule cible retirée par essai, la précision@$k$
+est mécaniquement plafonnée à $1/k$ ; on met donc en avant le \textbf{taux de
+réussite (hit-rate@$k$)}, égal au rappel@$k$ ici. La précision@10 vaut
+exactement hit-rate@10$/10$.
+
+\paragraph{Ablation — balayage de $\alpha$} (profil complet, $n=1\,000$,
+graine \texttt{42}) :
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+$\alpha$ & 0{,}00 & \textbf{0{,}25} & 0{,}50 & 0{,}75 & 1{,}00 \\
+\midrule
+Hit-rate@10   & 0{,}161 & \textbf{0{,}168} & 0{,}148 & 0{,}071 & 0{,}029 \\
+Hit-rate@20   & 0{,}247 & \textbf{0{,}250} & 0{,}205 & 0{,}103 & 0{,}046 \\
+Couverture@10 & 0{,}201 & 0{,}247 & 0{,}305 & 0{,}368 & \textbf{0{,}387} \\
+Diversité@10  & 0{,}933 & 0{,}908 & 0{,}865 & 0{,}814 & 0{,}793 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Lecture honnête — un gain sans coût.} À $\alpha=0{,}25$, le taux de
+réussite (\textbf{0{,}168}) est \emph{statistiquement indiscernable} du
+collaboratif pur ($\alpha=0$ : 0{,}161 ; écart $+0{,}007$, erreur-type
+$\approx 0{,}012$) : l'exactitude est \textbf{maintenue}. Dans le même temps la
+\textbf{couverture catalogue augmente} de $+4{,}6$ points (0{,}201 $\rightarrow$
+0{,}247). Le mélange n'est donc pas un compromis perte-de-précision-contre-
+couverture : c'est une amélioration de \textbf{Pareto} — plus de couverture pour
+aucun coût d'exactitude mesurable. C'est ce qui justifie $\alpha=0{,}25$. (Au-delà
+de $0{,}5$, l'exactitude chute nettement : le mélange équilibré est le bon réglage.)
+
+\paragraph{Sur la diversité (mise en garde).} La diversité décroît avec $\alpha$,
+mais cette mesure est \textbf{circulaire} : elle évalue une liste avec le cosinus
+contenu, alors que le bras contenu a contribué à produire cette liste. On
+s'appuie donc sur la \textbf{couverture} comme signal non circulaire, et la
+diversité n'est citée qu'avec cette réserve.
+
+\paragraph{Pourquoi la couverture est structurellement réelle.} Les angles morts
+des deux bras sont \emph{disjoints} : le bras contenu est aveugle sur 5 jeux
+(vecteur nul), que le collaboratif couvre ; le bras collaboratif est à faible
+signal sur 2\,068 jeux, que le contenu couvre. Chaque bras comble l'angle mort de
+l'autre — la couverture mesurée ci-dessus n'est pas un artefact, c'est la raison
+d'être de l'hybride. Tous les chiffres proviennent du notebook
+\texttt{notebooks/eval.ipynb} et de \texttt{artifacts/eval\_metrics.json}.
+
+% ======================= 7. LIMITES =======================
+\section{Limites}
+
+\begin{itemize}
+  \item \textbf{Le taux de réussite brut reste modeste} (hit-rate@10 $\approx$
+        17\,\%) : c'est attendu pour un leave-one-out à une seule cible positive
+        sur un catalogue de 6\,000 items ; la métrique mesure le rappel d'un
+        co-jeu, pas la pertinence subjective.
+  \item \textbf{L'hybride se défend sur la couverture} : à $\alpha=0{,}25$
+        l'exactitude est maintenue (indiscernable du collaboratif pur) et la
+        couverture gagne $+4{,}6$ points — honnêteté assumée plutôt qu'un
+        graphique flatteur.
+  \item \textbf{La diversité mesurée est circulaire} (cosinus contenu jugeant une
+        liste façonnée par le bras contenu) : on s'appuie sur la couverture.
+  \item \textbf{5 jeux sans contenu} (MMO F2P dont l'API Steam ne renvoie rien) :
+        résidu accepté, traités par le repli collaboratif.
+  \item \textbf{TF-IDF est lexical} : l'amorçage par ambiance par TF-IDF seul
+        confond « relaxant » avec la présence littérale du mot ; d'où le recours
+        au LLM (ancré par le résolveur) pour la sémantique des ambiances.
+  \item \textbf{Échelle réduite} : 6\,000 jeux et 150\,000 utilisateurs
+        échantillonnés pour rester traitable sur portable ; le système n'est pas
+        dimensionné pour le catalogue Steam complet.
+  \item \textbf{Latence vocale} : l'analyse LLM domine le temps de réponse
+        ($\approx 4$\,s à chaud) ; un état de chargement masque l'attente, mais
+        la chaîne STT $\rightarrow$ LLM $\rightarrow$ reco $\rightarrow$ TTS reste
+        séquentielle.
+\end{itemize}
+
+% ======================= 8. EXECUTION =======================
+\section{Installation et exécution}
+
+\begin{verbatim}
+# Back-end (FastAPI + artefacts pré-calculés)
+conda activate ds
+pip install -r requirements.txt
+uvicorn src.api:app --port 8765
+
+# LLM local (dans un terminal séparé)
+ollama serve            # modèle requis : llama3.1:8b
+
+# Front-end (Vite + React)
+cd web
+npm install
+npm run dev             # http://localhost:5173
+\end{verbatim}
+
+\noindent Déterminisme : toutes les étapes d'échantillonnage utilisent la graine
+\texttt{42} ; les artefacts (\texttt{games.json}, matrices de similarité,
+vectoriseur TF-IDF) sont régénérables depuis \texttt{src/} et ne sont jamais
+édités à la main.
+
+% ======================= CONCLUSION =======================
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+Le livrable est un recommandeur de jeux \emph{hybride pondéré} fonctionnel et
+explicable : deux bras cosinus mélangés par un seul $\alpha$, un front-end LLM
+local qui transforme une requête libre (ou une simple ambiance) en amorce sans
+jamais inventer les recommandations, et une voix entièrement locale. L'évaluation
+assume un résultat nuancé et le mesure : à $\alpha=0{,}25$ l'exactitude est
+maintenue (indiscernable du collaboratif pur) tandis que la couverture du
+catalogue augmente — une amélioration de Pareto, et non un score unique gonflé.
+C'est cette honnêteté, plutôt qu'un chiffre flatteur, qui correspond le mieux à
+l'objet réel d'un système de recommandation.
+
+\end{document}

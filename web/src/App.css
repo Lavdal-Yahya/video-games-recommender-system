@@ -1,0 +1,189 @@
+.app {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.app-header h1 {
+  font-size: 1.85rem;
+  margin: 0.25rem 0 0.15rem;
+  letter-spacing: -0.02em;
+}
+.app-header .tagline {
+  margin: 0 0 1.25rem;
+  color: rgba(245, 245, 248, 0.6);
+  font-size: 0.92rem;
+}
+
+.status-banner {
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  margin: 0.5rem 0 1rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.status-banner.info { background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.35); }
+.status-banner.warn { background: rgba(234, 179, 8, 0.12);  border-color: rgba(234, 179, 8, 0.35);  }
+.status-banner.error { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.4); }
+
+.entry {
+  display: grid;
+  gap: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245, 245, 248, 0.55);
+  margin-bottom: 0.35rem;
+}
+
+.search-box { position: relative; }
+.search-input { width: 100%; }
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1a1a1f;
+  border: 1px solid #3a3a42;
+  border-radius: 8px;
+  max-height: 18rem;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.25rem 0;
+  margin: 0;
+  z-index: 5;
+}
+.suggestions.empty {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(245, 245, 248, 0.55);
+}
+.suggestion {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0;
+  color: inherit;
+  font-size: 0.92rem;
+}
+.suggestion:hover { background: rgba(107, 107, 255, 0.12); border-color: transparent; }
+
+.ask-form { display: flex; gap: 0.5rem; }
+.ask-form .ask-input { flex: 1; }
+.mic-btn {
+  min-width: 3.25rem;
+  background: #2a2a30;
+}
+.mic-btn.listening {
+  background: #ff6b6b;
+  color: #fff;
+  border-color: #ff6b6b;
+}
+.ask-btn { min-width: 4rem; background: #6b6bff; color: #fff; border-color: #6b6bff; }
+.ask-btn:hover:not(:disabled) { background: #5757e0; }
+
+.hint {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: rgba(245, 245, 248, 0.55);
+}
+.hint.error { color: #ff8a8a; }
+
+.confirm-banner {
+  margin: 1rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 10px;
+}
+.confirm-text { margin-bottom: 0.55rem; font-size: 0.95rem; }
+.confirm-options { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.confirm-alt {
+  background: #2a2a30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.confirm-score {
+  font-size: 0.78rem;
+  color: rgba(245, 245, 248, 0.55);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+}
+.confirm-dismiss { font-size: 0.85rem; color: rgba(245, 245, 248, 0.55); }
+
+.results-section { margin-top: 1.5rem; }
+.results-heading {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+  font-weight: 500;
+  color: rgba(245, 245, 248, 0.85);
+}
+.results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: #1a1a1f;
+  border: 1px solid #2a2a30;
+  border-radius: 8px;
+}
+.rank { color: rgba(245, 245, 248, 0.45); font-variant-numeric: tabular-nums; }
+.result-score {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.82rem;
+  color: rgba(245, 245, 248, 0.55);
+}
+
+.provenance {
+  margin-top: 1.25rem;
+  background: #1a1a1f;
+  border: 1px solid #2a2a30;
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+}
+.provenance summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: rgba(245, 245, 248, 0.7);
+  user-select: none;
+}
+.prov-grid { margin-top: 0.55rem; display: grid; gap: 0.4rem; }
+.prov-row { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; font-size: 0.85rem; }
+.prov-key { color: rgba(245, 245, 248, 0.55); text-transform: lowercase; }
+.prov-val { color: rgba(245, 245, 248, 0.92); word-break: break-word; }
+.prov-pre {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  background: #131316;
+  border: 1px solid #2a2a30;
+  border-radius: 6px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  grid-column: 2;
+}
+
+.app-footer {
+  margin-top: 3rem;
+  font-size: 0.78rem;
+  color: rgba(245, 245, 248, 0.4);
+}

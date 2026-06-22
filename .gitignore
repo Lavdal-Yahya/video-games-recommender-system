@@ -1,0 +1,28 @@
+# Data and generated artifacts (large, regenerate-able)
+data/raw/
+data/processed/
+artifacts/
+
+# Phase 7.6 — local STT / TTS model binaries (hundreds of MB, downloaded, not authored)
+models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env/
+*.egg-info/
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Notebook checkpoints
+.ipynb_checkpoints/

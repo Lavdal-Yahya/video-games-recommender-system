@@ -1,0 +1,29 @@
+# Phase 0 — just enough to load and inspect the data.
+# Later phases (TF-IDF, FastAPI, Ollama client) add their own deps as needed.
+pandas
+pyarrow
+# Phase 1 — sparse interaction matrix.
+numpy
+scipy
+# Phase 2 — content-based similarity (TF-IDF + cosine).
+scikit-learn
+joblib
+# Phase 1.5 — Steam appdetails enrichment.
+requests
+# Phase 5 — recommender HTTP API.
+fastapi
+uvicorn[standard]
+# Phase 6 — NL -> {seed, filters} via local Ollama (model: llama3.1:8b). No new
+# pip dep: we reuse the Phase-1.5 `requests` pin to talk to Ollama's HTTP API.
+# Phase 7.6 — local voice stack. STT = faster-whisper (we ship the `base.en`
+# CTranslate2 model, ~145 MB on disk, auto-downloaded to the HF cache on first
+# use). TTS = piper-tts (we ship the `en_US-lessac-medium` voice, ~63 MB
+# .onnx + small .json config, fetched via `python -m piper.download_voices`).
+# Both model files live under ./models/ and are gitignored — they are NOT
+# artifacts. `python-multipart` is FastAPI's multipart parser, needed by /stt's
+# UploadFile.
+faster-whisper
+piper-tts
+python-multipart
+# Phase 8 — evaluation notebook plots.
+matplotlib
